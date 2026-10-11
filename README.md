@@ -44,6 +44,12 @@ flowchart LR
 
 ## Changelog
 
+### v1.2.1 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
+- Version shown in the top bar of both pages is now hardcoded and visible on mobile (no longer depends on reaching the service)
+- Answers fall back to plain text if the markdown libraries fail to load
+- A display failure no longer shows as "Couldn't reach the assistant"
+- package.json: version 1.2.1
+
 ### v1.2.0 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
 - Question log: each exchange (question, answer, sources, status, session, tokens, latency) is sent to the WBT server for the admin Chatbot tab; new CHATBOT_LOG_KEY env var
 - Answers: shorter and strictly factual (no headings, no dramatic language, no details beyond the sources); grouped citations such as [S1, S6] are now recognized
