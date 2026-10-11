@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who's Behind That? — How it was built</title>
+<meta name="description" content="Ask an AI guide about the architecture, engineering decisions and development history of Who's Behind That?, built by Haim Glikman.">
+<meta property="og:title" content="Who's Behind That? — How it was built">
+<meta property="og:description" content="Ask about the architecture, engineering decisions and development history of WBT.">
+<meta property="og:image" content="https://ask.whosbehindthat.com/logo.png">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#1a6bff;--blue-dim:#eff6ff;--blue-mid:#d0e4f7;--navy:#0f2744;
+  --bg:#e8f2fc;--bg2:#f5f9ff;--surface:#fff;
+  --border:#cfe0f5;--border2:#b8d0ec;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;--red:#ef4444;--red-dim:#fee2e2;--amber:#f59e0b;
+  --mono:'DM Mono',monospace;--sans:'Nunito',system-ui,sans-serif;--serif:Georgia,'Times New Roman',serif;
+  --radius:14px;--radius-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.topbar{background:var(--navy);min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;gap:12px;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--blue),#0a3fa8);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-name{font-size:14px;font-weight:700;color:#fff;white-space:nowrap}
+.brand-badge{font-size:10px;color:#4a8aff;background:rgba(74,138,255,.15);border:1px solid rgba(74,138,255,.25);border-radius:99px;padding:2px 9px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.topbar-links{display:flex;gap:18px;font-size:12px;font-weight:600}
+.topbar-links a{color:#9dc2ff}
+
+.main{flex:1;width:100%;max-width:820px;margin:0 auto;padding:28px 20px 20px;display:flex;flex-direction:column;gap:16px}
+.intro h1{font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.2;color:var(--navy)}
+.intro h1 span{color:var(--blue)}
+.intro p{margin-top:8px;font-size:14px;color:var(--text2);line-height:1.6;max-width:640px}
+
+.chat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+.messages{padding:20px;display:flex;flex-direction:column;gap:16px;min-height:220px}
+.empty-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--navy);background:var(--bg2);border:1px solid var(--border2);border-radius:99px;padding:7px 14px;cursor:pointer;text-align:left;transition:background .15s,border-color .15s}
+.chip:hover{background:var(--blue-dim);border-color:var(--blue)}
+
+.msg-user{align-self:flex-end;max-width:78%;background:var(--blue);color:#fff;font-size:14px;line-height:1.55;padding:10px 14px;border-radius:14px 14px 4px 14px;white-space:pre-wrap;word-wrap:break-word}
+.msg-bot{align-self:flex-start;max-width:92%;font-size:14.5px;line-height:1.65;color:var(--text)}
+.msg-bot p+p,.msg-bot p+ul,.msg-bot ul+p,.msg-bot p+ol,.msg-bot ol+p{margin-top:10px}
+.msg-bot ul,.msg-bot ol{padding-left:20px}
+.msg-bot li+li{margin-top:4px}
+.msg-bot code{font-family:var(--mono);font-size:12.5px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+.msg-bot strong{font-weight:700}
+.sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.source{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px 8px}
+.source:hover{border-color:var(--blue);color:var(--blue);text-decoration:none}
+.msg-error{align-self:flex-start;font-size:13px;color:#b91c1c;background:var(--red-dim);border-radius:10px;padding:8px 12px}
+.thinking{align-self:flex-start;display:flex;gap:5px;padding:6px 2px}
+.thinking span{width:7px;height:7px;border-radius:50%;background:var(--border2);animation:blink 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:.2s}.thinking span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1;background:var(--blue)}}
+
+.status{display:none;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text2);background:var(--bg2);border-top:1px solid var(--border);padding:9px 20px}
+.status.show{display:flex}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+.composer{display:flex;gap:10px;align-items:flex-end;border-top:1px solid var(--border);padding:14px 16px;background:var(--surface)}
+.composer textarea{flex:1;resize:none;font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;background:var(--bg2);max-height:140px;outline:none}
+.composer textarea:focus{border-color:var(--blue);background:#fff}
+.composer button{font-family:var(--sans);font-size:14px;font-weight:700;color:#fff;background:var(--blue);border:none;border-radius:var(--radius-sm);padding:11px 18px;cursor:pointer;white-space:nowrap}
+.composer button:hover{background:#0f5ae6}
+.composer button[aria-busy="true"]{background:var(--text3);cursor:wait}
+.counter{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:right;padding:0 18px 8px;background:var(--surface)}
+.counter.over{color:var(--red)}
+
+.footer{font-size:11.5px;color:var(--text3);line-height:1.6;text-align:center;padding:4px 20px 24px}
+
+@media (max-width:640px){
+  .topbar{padding:10px 16px;flex-wrap:wrap}
+  .brand-badge{display:none}
+  .main{padding:20px 12px 12px}
+  .intro h1{font-size:24px}
+  .messages{padding:16px}
+  .msg-user{max-width:88%}
+  .msg-bot{max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <line x1="9" y1="9" x2="3" y2="5" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="15" y2="4" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="15" y2="13" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="4" y2="14" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="3" y1="5" x2="15" y2="4" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="15" y1="4" x2="15" y2="13" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="15" y1="13" x2="4" y2="14" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="4" y1="14" x2="3" y2="5" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <circle cx="9" cy="9" r="2.5" fill="white"/>
+        <circle cx="3" cy="5" r="1.5" fill="white" opacity="0.8"/>
+        <circle cx="15" cy="4" r="1.3" fill="white" opacity="0.7"/>
+        <circle cx="15" cy="13" r="1.4" fill="white" opacity="0.7"/>
+        <circle cx="4" cy="14" r="1.5" fill="white" opacity="0.75"/>
+      </svg>
+    </div>
+    <span class="brand-name">Who's Behind That?</span>
+    <span class="brand-badge">HOW IT WAS BUILT</span>
+  </div>
+  <nav class="topbar-links">
+    <a href="https://whosbehindthat.com" target="_blank" rel="noopener">Live app</a>
+    <a href="https://github.com/haimglikman/whos-behind-that-server/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+    <a href="https://github.com/haimglikman?tab=repositories&q=whos-behind-that" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<main class="main">
+  <section class="intro">
+    <h1>Ask how <span>WBT</span> was built</h1>
+    <p>Who's Behind That? is an AI tool that detects whose agenda a post or article serves. It was designed and built end to end by Haim Glikman. Ask about its architecture, engineering decisions and development history. Answers come from the project's repos and cite their sources.</p>
+  </section>
+
+  <section class="chat" aria-label="Chat">
+    <div class="messages" id="messages" aria-live="polite">
+      <div id="starter">
+        <div class="empty-label">Try asking</div>
+        <div class="chips">
+          <button class="chip">Walk me through the architecture</button>
+          <button class="chip">How does the Jev + Claude scoring engine work?</button>
+          <button class="chip">What was the hardest bug, and how was it fixed?</button>
+          <button class="chip">How did video transcription evolve?</button>
+          <button class="chip">How are versions managed across three components?</button>
+          <button class="chip">How is the system secured?</button>
+        </div>
+      </div>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">Waking up the assistant…</span></div>
+    <form class="composer" id="composer">
+      <textarea id="input" rows="1" maxlength="600" placeholder="Ask how WBT was built" aria-label="Your question"></textarea>
+      <button type="submit" id="send">Ask</button>
+    </form>
+    <div class="counter" id="counter"></div>
+  </section>
+
+  <p class="footer">Answers are generated by AI (Claude) from WBT's public repositories and may contain mistakes. Check the cited sources.<br>
+  This assistant is open source: <a href="https://github.com/haimglikman/wbt-chatbot" target="_blank" rel="noopener">wbt-chatbot</a>.</p>
+</main>
+
+<script>
+const API = new URLSearchParams(location.search).get('api') || 'https://wbt-chatbot.onrender.com';
+const MAX_CHARS = 500;
+const history = [];   // [{role, content}] — prior turns sent with each question
+let busy = false;
+
+const $ = id => document.getElementById(id);
+const messagesEl = $('messages'), inputEl = $('input'), sendEl = $('send');
+const statusEl = $('status'), statusText = $('status-text'), counterEl = $('counter');
+
+function setStatus(text) {
+  if (text) { statusText.textContent = text; statusEl.classList.add('show'); }
+  else statusEl.classList.remove('show');
+}
+
+// ── Warm-up: free hosting sleeps when idle, so wake it as soon as the page opens
+async function warmUp() {
+  const slow = setTimeout(() => setStatus('Waking up the assistant… this can take up to a minute.'), 1500);
+  for (let i = 0; i < 20; i++) {
+    try {
+      const r = await fetch(API + '/health', { cache: 'no-store' });
+      if (r.ok && (await r.json()).ready) { clearTimeout(slow); setStatus(''); return true; }
+    } catch (e) { /* still waking */ }
+    await new Promise(res => setTimeout(res, 4000));
+  }
+  clearTimeout(slow);
+  setStatus('The assistant is taking longer than usual to start. You can still try asking.');
+  return false;
+}
+const ready = warmUp();
+
+// ── Rendering
+function esc(s) { return s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
+// Minimal markdown: paragraphs, bullet and numbered lists, bold, inline code.
+function renderMarkdown(text) {
+  const blocks = [];
+  let list = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.trimEnd();
+    const bullet = line.match(/^\s*[-*•]\s+(.*)$/), num = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (bullet || num) {
+      const type = bullet ? 'ul' : 'ol';
+      if (!list || list.type !== type) { list = { type, items: [] }; blocks.push(list); }
+      list.items.push((bullet || num)[1]);
+    } else if (line.trim()) {
+      const last = blocks[blocks.length - 1];
+      if (!list && last && last.type === 'p') last.text += ' ' + line.trim();
+      else { list = null; blocks.push({ type: 'p', text: line.trim() }); }
+    } else list = null;
+  }
+  return blocks.map(b => b.type === 'p'
+    ? '<p>' + inline(b.text) + '</p>'
+    : '<' + b.type + '>' + b.items.map(i => '<li>' + inline(i) + '</li>').join('') + '</' + b.type + '>').join('');
+}
+
+function sourceLabel(title) {
+  if (title.startsWith('WBT FAQ')) return 'FAQ';
+  const [repo, ...rest] = title.split('/');
+  const file = rest.join('/');
+  const component = repo.replace('whos-behind-that-', '');
+  return component + ' · ' + (file === 'README.md' ? 'changelog' : file.replace(/^docs\//, '').replace(/\.md$/i, ''));
+}
+
+function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+
+function addUser(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-user'; el.textContent = text;
+  messagesEl.appendChild(el); scrollDown();
+}
+
+function addBot(answer, sources) {
+  const el = document.createElement('div');
+  el.className = 'msg-bot';
+  const clean = answer.replace(/\s*\[S\d+\](?:\s*\[S\d+\])*/g, '').trim();   // citations are listed below instead
+  el.innerHTML = renderMarkdown(clean);
+  if (sources && sources.length) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sources';
+    for (const s of sources) {
+      const a = document.createElement('a');
+      a.className = 'source'; a.href = s.url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = sourceLabel(s.title); a.title = s.title;
+      wrap.appendChild(a);
+    }
+    el.appendChild(wrap);
+  }
+  messagesEl.appendChild(el); scrollDown();
+}
+
+function addError(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-error'; el.textContent = text;
+  messagesEl.appendChild(el); scrollDown();
+}
+
+function showThinking() {
+  const el = document.createElement('div');
+  el.className = 'thinking'; el.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(el); scrollDown();
+  return el;
+}
+
+// ── Asking
+async function ask(question) {
+  question = question.trim();
+  if (!question || busy) return;
+  if (question.length > MAX_CHARS) { addError('Keep questions under ' + MAX_CHARS + ' characters.'); return; }
+  busy = true; sendEl.setAttribute('aria-busy', 'true');
+  const starter = $('starter'); if (starter) starter.remove();
+  addUser(question);
+  inputEl.value = ''; updateCounter(); autoGrow();
+  const thinking = showThinking();
+  try {
+    await ready;
+    let data, res;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      res = await fetch(API + '/ask', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, history: history.slice(-12) }),
+      });
+      data = await res.json().catch(() => ({}));
+      if (res.status !== 503) break;   // 503 = still loading the corpus after a cold start
+      setStatus('Loading the project documentation…');
+      await new Promise(r => setTimeout(r, 5000));
+    }
+    setStatus('');
+    thinking.remove();
+    if (!res.ok) { addError(data.error || 'Something went wrong. Try again.'); return; }
+    addBot(data.answer, data.sources);
+    history.push({ role: 'user', content: question }, { role: 'assistant', content: data.answer });
+  } catch (e) {
+    thinking.remove();
+    addError("Couldn't reach the assistant. Check your connection and try again.");
+  } finally {
+    busy = false; sendEl.removeAttribute('aria-busy'); inputEl.focus();
+  }
+}
+
+// ── Input handling
+function updateCounter() {
+  const n = inputEl.value.length;
+  counterEl.textContent = n > MAX_CHARS * 0.8 ? n + ' / ' + MAX_CHARS : '';
+  counterEl.classList.toggle('over', n > MAX_CHARS);
+}
+function autoGrow() { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px'; }
+
+$('composer').addEventListener('submit', e => { e.preventDefault(); ask(inputEl.value); });
+inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(inputEl.value); } });
+inputEl.addEventListener('input', () => { updateCounter(); autoGrow(); });
+document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => ask(c.textContent)));
+</script>
+</body>
+</html>

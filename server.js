@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 
-const SERVER_VERSION = '1.0.0';
+const SERVER_VERSION = '1.1.0';
 
 // ── Configuration ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -36,6 +36,7 @@ const REPOS = [
   { name: 'whos-behind-that-server-dev', component: 'server', env: 'development', docs: false },
   { name: 'whos-behind-that-admin-dev',  component: 'admin',  env: 'development', docs: false },
   { name: 'whos-behind-that-client-dev', component: 'client', env: 'development', docs: false },
+  { name: 'wbt-chatbot',                 component: 'chatbot', env: 'production', docs: false },   // this assistant itself
 ];
 
 // ── Corpus state ────────────────────────────────────────────────
@@ -107,10 +108,10 @@ function describe(repo, path) {
 function buildCorpus() {
   const sources = [];
   const parts = [];
-  // Docs first (curated, highest signal), then prod changelogs, then dev changelogs, then FAQ.
+  // Production changelogs first (the primary technical record), then docs, then dev changelogs, then FAQ.
   const ordered = [];
   for (const repo of REPOS) for (const f of repoDocs[repo.name]?.files || []) {
-    const rank = f.path !== 'README.md' ? 0 : repo.env === 'production' ? 1 : 2;
+    const rank = f.path === 'README.md' ? (repo.env === 'production' ? 0 : 2) : 1;
     ordered.push({ rank, repo, f });
   }
   ordered.sort((a, b) => a.rank - b.rank);
@@ -123,7 +124,7 @@ function buildCorpus() {
     const id = `S${sources.length + 1}`;
     sources.push({ id, title: 'WBT FAQ (whosbehindthat.com)', url: 'https://whosbehindthat.com' });
     const body = faq.items.map(q => `[${q.group}] Q: ${q.question}\nA: ${q.answer}`).join('\n\n');
-    parts.push(`<source id="${id}" kind="public FAQ shown to WBT users">\n${body}\n</source>`);
+    parts.push(`<source id="${id}" kind="public FAQ shown to WBT users — product-level only, lowest priority">\n${body}\n</source>`);
   }
   corpus = { text: parts.join('\n\n'), sources, builtAt: new Date().toISOString() };
   console.log(`Corpus built: ${sources.length} sources, ~${Math.round(corpus.text.length / 4).toLocaleString()} tokens`);
@@ -136,13 +137,15 @@ async function refreshAll() {
 }
 
 // ── System prompt ───────────────────────────────────────────────
-const INSTRUCTIONS = `You are the guide to "Who's Behind That?" (WBT), an AI-powered narrative alignment analysis tool designed, built and operated by a single developer, Haim Glikman. Visitors are mostly recruiters and hiring managers who want to understand the product and how Haim built it: architecture, technical decisions, problems solved, tooling and process.
+const INSTRUCTIONS = `You are the guide to "Who's Behind That?" (WBT), an AI-powered narrative alignment analysis tool designed, built and operated by a single developer, Haim Glikman. Visitors are mostly recruiters, hiring managers and engineers who want to understand how Haim built it: the technical architecture, engineering decisions, problems solved, tooling and development process. Focus on the engineering, not on how to use the product.
 
 Rules:
 - Answer only from the sources below. If the sources don't cover something, say so plainly and suggest a related question you can answer. Never invent features, numbers, dates, or reasons.
 - Refer to the developer as "Haim", in the third person.
 - Lead with the direct answer. Keep answers short: 2–5 sentences or a few bullets, unless the visitor asks for depth.
-- Prefer the docs (architecture, overviews, decisions) for "why" and "how"; use changelogs for "when" and "what changed". Changelogs list newest entries first.
+- The repo changelogs are the primary technical record: what was built, in which version, what broke and how it was fixed. Draw on them for concrete technical detail and mention version numbers where they help (e.g. "in server v1.23.0"). Changelogs list newest entries first, so read upward for chronology.
+- Use the docs (architecture, overviews, decisions) to explain the overall design and the reasoning behind choices.
+- Use the FAQ only for product-level questions (what the tool does, privacy, pricing); never prefer it over the repos for technical answers.
 - Development repos contain experimental work; say so when a feature was built in dev and not shipped to production.
 - Cite sources with their ids in square brackets, e.g. [S2], right after the claim they support.
 - WBT analyzes political content about the Israeli-Palestinian conflict and Israeli politics. Explain what the tool does, but never state political opinions or judge any entity, party, or person.
