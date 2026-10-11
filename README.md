@@ -42,6 +42,14 @@ flowchart LR
 
 ## Changelog
 
+### v1.2.0 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
+- Question log: each exchange (question, answer, sources, status, session, tokens, latency) is sent to the WBT server for the admin Chatbot tab; new CHATBOT_LOG_KEY env var
+- Answers: shorter and strictly factual (no headings, no dramatic language, no details beyond the sources); grouped citations such as [S1, S6] are now recognized
+- Page renders full markdown (headings, italics, lists) via bundled marked and DOMPurify; all citation formats are stripped in favor of source chips
+- Live chatbot version shown in the top bar, read from the running service
+- New Architecture page (architecture.html) rendering ARCHITECTURE.md live from the server repo, with the system diagram; replaces the link to GitHub
+- package.json: version 1.2.0
+
 ### v1.1.0 (chatbot) | Server: v2.6.0 | Admin: v2.29.0 | Client: v1.20.0
 - Chat page (index.html) for ask.whosbehindthat.com via GitHub Pages: WBT styling, technical starter questions, cited source chips linking to GitHub, warm-up state for cold starts, mobile layout
 - Answers focus on technical architecture: production changelogs are the primary source (ordered first, versions cited), docs explain design and reasoning, FAQ used only for product-level questions
