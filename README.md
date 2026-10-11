@@ -40,6 +40,8 @@ flowchart LR
 | `PER_IP_HOURLY_LIMIT` | No | `20` |
 | `GLOBAL_DAILY_LIMIT` | No | `300` |
 
+| `CHATBOT_LOG_KEY` | Recommended | — (same value as on the WBT server; enables the question log) |
+
 ## Changelog
 
 ### v1.2.0 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
