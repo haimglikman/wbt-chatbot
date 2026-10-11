@@ -22,7 +22,6 @@ a:hover{text-decoration:underline}
 .topbar-links a{color:#9dc2ff}
 .topbar-links a.active{color:#fff;text-decoration:underline;text-underline-offset:5px}
 .version-badge{font-family:var(--mono);font-size:10px;color:#9dc2ff;border:1px solid rgba(157,194,255,.35);border-radius:6px;padding:2px 7px;white-space:nowrap}
-.version-badge[hidden]{display:none}
 
 .main{flex:1;width:100%;max-width:820px;margin:0 auto;padding:28px 20px 20px;display:flex;flex-direction:column;gap:16px}
 .intro h1{font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.2;color:var(--navy)}
@@ -100,5 +99,5 @@ a:hover{text-decoration:underline}
 .doc-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--navy);color:#fff;border-radius:var(--radius);padding:16px 20px;font-size:14px}
 .doc-cta a{color:#fff;background:var(--blue);border-radius:var(--radius-sm);padding:9px 16px;font-weight:700}
 .doc-cta a:hover{text-decoration:none;background:#0f5ae6}
-@media (max-width:640px){ .doc{padding:20px 16px} .doc h1{font-size:24px} .version-badge{display:none} }
+@media (max-width:640px){ .doc{padding:20px 16px} .doc h1{font-size:24px} }
 

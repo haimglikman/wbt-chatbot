@@ -37,6 +37,7 @@
     </div>
     <span class="brand-name">Who's Behind That?</span>
     <span class="brand-badge">HOW IT WAS BUILT</span>
+    <span class="version-badge">v1.2.1</span>
   </div>
   <div class="topbar-right">
     <nav class="topbar-links">
@@ -45,7 +46,6 @@
       <a href="https://whosbehindthat.com" target="_blank" rel="noopener">Live app</a>
       <a href="https://github.com/haimglikman?tab=repositories&q=whos-behind-that" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <span class="version-badge" id="version-badge" hidden></span>
   </div>
 </header>
 
@@ -192,7 +192,8 @@ async function ask(question) {
     setStatus('');
     thinking.remove();
     if (!res.ok) { addError(data.error || 'Something went wrong. Try again.'); return; }
-    addBot(data.answer, data.sources);
+    try { addBot(data.answer, data.sources); }
+    catch (renderErr) { addError("The answer arrived but couldn't be displayed. Reload the page and try again."); return; }
     chatHistory.push({ role: 'user', content: question }, { role: 'assistant', content: data.answer });
   } catch (e) {
     thinking.remove();

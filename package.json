@@ -1,6 +1,6 @@
 {
   "name": "wbt-chatbot",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Q&A assistant about how Who's Behind That? was built — grounded in the WBT repos' docs and live FAQ",
   "type": "module",
   "main": "server.js",
