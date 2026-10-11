@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who's Behind That? — Architecture</title>
+<meta name="description" content="The system architecture of Who's Behind That?: components, scoring and investigation pipelines, data model and environments.">
+<meta property="og:title" content="Who's Behind That? — Architecture">
+<meta property="og:description" content="Components, pipelines, data model and environments of WBT.">
+<meta property="og:image" content="https://ask.whosbehindthat.com/logo.png">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <line x1="9" y1="9" x2="3" y2="5" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="15" y2="4" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="15" y2="13" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="9" y1="9" x2="4" y2="14" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="3" y1="5" x2="15" y2="4" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="15" y1="4" x2="15" y2="13" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="15" y1="13" x2="4" y2="14" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <line x1="4" y1="14" x2="3" y2="5" stroke="white" stroke-width="0.7" opacity="0.3"/>
+        <circle cx="9" cy="9" r="2.5" fill="white"/>
+        <circle cx="3" cy="5" r="1.5" fill="white" opacity="0.8"/>
+        <circle cx="15" cy="4" r="1.3" fill="white" opacity="0.7"/>
+        <circle cx="15" cy="13" r="1.4" fill="white" opacity="0.7"/>
+        <circle cx="4" cy="14" r="1.5" fill="white" opacity="0.75"/>
+      </svg>
+    </div>
+    <span class="brand-name">Who's Behind That?</span>
+    <span class="brand-badge">HOW IT WAS BUILT</span>
+  </div>
+  <div class="topbar-right">
+    <nav class="topbar-links">
+      <a href="./">Ask</a>
+      <a href="architecture.html" class="active">Architecture</a>
+      <a href="https://whosbehindthat.com" target="_blank" rel="noopener">Live app</a>
+      <a href="https://github.com/haimglikman?tab=repositories&q=whos-behind-that" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <span class="version-badge" id="version-badge" hidden></span>
+  </div>
+</header>
+
+<main class="main">
+  <article class="doc" id="doc">
+    <p style="color:var(--text3)">Loading the architecture document…</p>
+  </article>
+
+  <div class="doc-cta">
+    <span>Want the reasoning behind a component, or how it evolved?</span>
+    <a href="./">Ask the assistant</a>
+  </div>
+
+  <p class="footer">This page renders <a id="source-link" href="https://github.com/haimglikman/whos-behind-that-server/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">ARCHITECTURE.md</a> live from the WBT server repository, so it always matches the latest push.</p>
+</main>
+
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="common.js"></script>
+<script>
+const REPO = 'haimglikman/whos-behind-that-server';
+const DOC_PATH = 'docs/ARCHITECTURE.md';
+const RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/main/' + DOC_PATH;
+const BLOB_BASE = 'https://github.com/' + REPO + '/blob/main/docs/';
+const MERMAID_URL = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js';
+
+fetchHealth().catch(() => {});   // live chatbot version in the top bar
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function renderDiagrams(root) {
+  const blocks = root.querySelectorAll('pre > code.language-mermaid');
+  if (!blocks.length) return;
+  const divs = [];
+  blocks.forEach(code => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    code.parentElement.replaceWith(div);
+    divs.push(div);
+  });
+  try {
+    await loadScript(MERMAID_URL);
+    mermaid.initialize({
+      startOnLoad: false, securityLevel: 'strict', theme: 'base',
+      themeVariables: {
+        fontFamily: 'Nunito, system-ui, sans-serif', fontSize: '14px',
+        primaryColor: '#eff6ff', primaryBorderColor: '#1a6bff', primaryTextColor: '#0f2744',
+        lineColor: '#475569', clusterBkg: '#f5f9ff', clusterBorder: '#b8d0ec',
+      },
+    });
+    await mermaid.run({ nodes: divs });
+  } catch (e) {
+    // Diagram library unavailable: show the diagram source instead.
+    divs.forEach(div => { const pre = document.createElement('pre'); pre.textContent = div.textContent; div.replaceWith(pre); });
+  }
+}
+
+async function loadDoc() {
+  const doc = document.getElementById('doc');
+  try {
+    const r = await fetch(RAW_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error('status ' + r.status);
+    const md = await r.text();
+    const content = renderMarkdown(md);
+    // Relative links (e.g. SERVER_DECISIONS.md) point at the repo on GitHub.
+    content.querySelectorAll('a[href]').forEach(a => {
+      const href = a.getAttribute('href');
+      if (!/^(https?:|mailto:|#)/.test(href)) a.href = BLOB_BASE + href;
+    });
+    // Show the doc version line as subtle metadata.
+    const first = content.querySelector('h1 + p');
+    if (first && /Doc version/i.test(first.textContent)) first.className = 'doc-meta';
+    doc.replaceChildren(content);
+    await renderDiagrams(doc);
+  } catch (e) {
+    doc.innerHTML = '<p>Couldn\'t load the architecture document. <a href="' + BLOB_BASE + 'ARCHITECTURE.md" target="_blank" rel="noopener">Read it on GitHub</a>.</p>';
+  }
+}
+loadDoc();
+</script>
+</body>
+</html>

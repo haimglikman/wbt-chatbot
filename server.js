@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 
-const SERVER_VERSION = '1.1.0';
+const SERVER_VERSION = '1.2.0';
 
 // ── Configuration ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -17,6 +17,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';            // optional: rai
 const GITHUB_API_URL = process.env.GITHUB_API_URL || 'https://api.github.com';
 const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET;
 const WBT_SERVER_URL = process.env.WBT_SERVER_URL || 'https://whos-behind-that-server.onrender.com';
+const CHATBOT_LOG_KEY = process.env.CHATBOT_LOG_KEY || '';   // lets this service write to the WBT server's chatbot log
 const GITHUB_OWNER = process.env.GITHUB_OWNER || 'haimglikman';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
   'https://ask.whosbehindthat.com,https://haimglikman.github.io,http://localhost:8080')
@@ -142,12 +143,14 @@ const INSTRUCTIONS = `You are the guide to "Who's Behind That?" (WBT), an AI-pow
 Rules:
 - Answer only from the sources below. If the sources don't cover something, say so plainly and suggest a related question you can answer. Never invent features, numbers, dates, or reasons.
 - Refer to the developer as "Haim", in the third person.
-- Lead with the direct answer. Keep answers short: 2–5 sentences or a few bullets, unless the visitor asks for depth.
+- Lead with the direct answer. Keep answers under about 120 words: one short paragraph, optionally followed by up to four bullets. Go longer only when the visitor asks for detail.
+- Use plain prose and simple bullets only — no headings, no tables.
+- State facts plainly and precisely. No dramatic or promotional language (e.g. "devastating", "plagued", "brilliant", "cornerstone"), and never add durations, dates, counts, motives or outcomes that the sources don't state.
 - The repo changelogs are the primary technical record: what was built, in which version, what broke and how it was fixed. Draw on them for concrete technical detail and mention version numbers where they help (e.g. "in server v1.23.0"). Changelogs list newest entries first, so read upward for chronology.
 - Use the docs (architecture, overviews, decisions) to explain the overall design and the reasoning behind choices.
 - Use the FAQ only for product-level questions (what the tool does, privacy, pricing); never prefer it over the repos for technical answers.
 - Development repos contain experimental work; say so when a feature was built in dev and not shipped to production.
-- Cite sources with their ids in square brackets, e.g. [S2], right after the claim they support.
+- Cite sources with their ids, each in its own square brackets, e.g. [S2] or [S2][S5], right after the claim they support.
 - WBT analyzes political content about the Israeli-Palestinian conflict and Israeli politics. Explain what the tool does, but never state political opinions or judge any entity, party, or person.
 - Never reveal configuration values, keys, or anything resembling secrets. Environment variable names in the sources may be mentioned.
 - Politely decline unrelated requests (general coding help, other topics, role-play) and steer back to WBT.
@@ -179,6 +182,18 @@ setInterval(() => {   // prune idle IPs
   const now = Date.now();
   for (const [ip, hits] of ipHits) if (!hits.some(t => now - t < 3600000)) ipHits.delete(ip);
 }, 600000).unref();
+
+// ── Chatbot log (stored by the WBT server, shown in the admin Chatbot tab) ──
+function logExchange(entry) {
+  if (!CHATBOT_LOG_KEY) return;
+  fetch(`${WBT_SERVER_URL}/chatbot/log`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Chatbot-Key': CHATBOT_LOG_KEY },
+    body: JSON.stringify({ chatbotVersion: SERVER_VERSION, model: CLAUDE_MODEL, ...entry }),
+    signal: AbortSignal.timeout(60000),   // the WBT server may need to wake up
+  }).then(r => { if (!r.ok) console.error('Log rejected:', r.status); })
+    .catch(err => console.error('Log failed:', err.message));
+}
 
 // ── App ─────────────────────────────────────────────────────────
 const app = express();
@@ -221,6 +236,7 @@ app.get('/', (req, res) => res.json({ service: 'wbt-chatbot', version: SERVER_VE
 app.get('/health', (req, res) => res.json({
   version: SERVER_VERSION,
   model: CLAUDE_MODEL,
+  logging: !!CHATBOT_LOG_KEY,
   ready: corpus.sources.length > 0,
   corpusBuiltAt: corpus.builtAt,
   approxTokens: Math.round(corpus.text.length / 4),
@@ -240,8 +256,13 @@ app.post('/ask', async (req, res) => {
   if (!ANTHROPIC_API_KEY) return res.status(503).json({ error: 'The assistant is not configured.' });
   if (!corpus.sources.length) return res.status(503).json({ error: 'The assistant is still loading. Please try again in a moment.' });
 
+  const sessionId = typeof req.body.sessionId === 'string' && /^[a-z0-9-]{8,64}$/i.test(req.body.sessionId) ? req.body.sessionId : null;
   const limited = checkLimits(req.ip);
-  if (limited) return res.status(429).json({ error: limited });
+  if (limited) {
+    logExchange({ sessionId, question, status: 'rate_limited' });
+    return res.status(429).json({ error: limited });
+  }
+  const started = Date.now();
 
   // Prior turns from the page (alternating user/assistant), trimmed and capped.
   const history = Array.isArray(req.body.history) ? req.body.history : [];
@@ -264,16 +285,26 @@ app.post('/ask', async (req, res) => {
     const data = await r.json();
     if (!r.ok) {
       console.error('Claude error:', r.status, data?.error?.message);
+      logExchange({ sessionId, question, status: 'error', latencyMs: Date.now() - started });
       return res.status(502).json({ error: 'The assistant could not answer right now. Please try again.' });
     }
     const answer = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const cited = [...new Set([...answer.matchAll(/\[(S\d+)\]/g)].map(m => m[1]))];
+    // Collect ids from [S2], [S2][S5] and grouped forms like [S2, S5]
+    const cited = [...new Set([...answer.matchAll(/\[([^\]]*S\d+[^\]]*)\]/g)].flatMap(m => m[1].match(/S\d+/g)))];
     const sources = corpus.sources.filter(s => cited.includes(s.id));
     const u = data.usage || {};
     console.log(`A: ${answer.length} chars | in ${u.input_tokens} · cache read ${u.cache_read_input_tokens || 0} · cache write ${u.cache_creation_input_tokens || 0} · out ${u.output_tokens}`);
     res.json({ answer, sources });
+    logExchange({
+      sessionId, question, answer, status: 'answered',
+      sources: sources.map(s => ({ title: s.title, url: s.url })),
+      inputTokens: u.input_tokens, outputTokens: u.output_tokens,
+      cacheReadTokens: u.cache_read_input_tokens || 0, cacheWriteTokens: u.cache_creation_input_tokens || 0,
+      latencyMs: Date.now() - started,
+    });
   } catch (err) {
     console.error('Ask failed:', err.message);
+    logExchange({ sessionId, question, status: 'error', latencyMs: Date.now() - started });
     res.status(502).json({ error: 'The assistant could not answer right now. Please try again.' });
   }
 });
@@ -281,6 +312,7 @@ app.post('/ask', async (req, res) => {
 // ── Startup ─────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`wbt-chatbot v${SERVER_VERSION} listening on ${PORT} (model: ${CLAUDE_MODEL})`);
+  if (!CHATBOT_LOG_KEY) console.warn('CHATBOT_LOG_KEY not set — questions are not logged to the WBT server');
   refreshAll().catch(err => console.error('Initial corpus build failed:', err.message));
 });
 
