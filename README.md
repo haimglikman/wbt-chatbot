@@ -42,6 +42,12 @@ flowchart LR
 
 ## Changelog
 
+### v1.1.0 (chatbot) | Server: v2.6.0 | Admin: v2.29.0 | Client: v1.20.0
+- Chat page (index.html) for ask.whosbehindthat.com via GitHub Pages: WBT styling, technical starter questions, cited source chips linking to GitHub, warm-up state for cold starts, mobile layout
+- Answers focus on technical architecture: production changelogs are the primary source (ordered first, versions cited), docs explain design and reasoning, FAQ used only for product-level questions
+- The assistant's own repo (wbt-chatbot) added to the corpus
+- package.json: version 1.1.0
+
 ### v1.0.0 (chatbot) | Server: v2.3.0 | Admin: v2.26.0 | Client: v1.20.0
 - Initial release: `/ask`, `/refresh` (GitHub push webhook), `/health`
 - Corpus from the six WBT repos (prod: README + `docs/`; dev: README) and the live FAQ
