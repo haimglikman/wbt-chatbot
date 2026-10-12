@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 
-const SERVER_VERSION = '1.2.1';
+const SERVER_VERSION = '1.2.2';
 
 // ── Configuration ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -131,10 +131,18 @@ function buildCorpus() {
   console.log(`Corpus built: ${sources.length} sources, ~${Math.round(corpus.text.length / 4).toLocaleString()} tokens`);
 }
 
+let reposLoaded = false;   // ready once the repo docs are in; the FAQ joins when it arrives
+
 async function refreshAll() {
-  const results = await Promise.allSettled([...REPOS.map(r => fetchRepo(r)), fetchFaq()]);
+  // The FAQ comes from the WBT server, which may itself be waking up — don't make readiness wait for it.
+  const faqTask = fetchFaq()
+    .then(changed => { if (changed && reposLoaded) buildCorpus(); })
+    .catch(err => console.error('FAQ fetch failed:', err.message));
+  const results = await Promise.allSettled(REPOS.map(r => fetchRepo(r)));
   results.filter(r => r.status === 'rejected').forEach(r => console.error('Refresh error:', r.reason.message));
+  reposLoaded = Object.keys(repoDocs).length > 0;
   buildCorpus();
+  return faqTask;
 }
 
 // ── System prompt ───────────────────────────────────────────────
@@ -237,7 +245,7 @@ app.get('/health', (req, res) => res.json({
   version: SERVER_VERSION,
   model: CLAUDE_MODEL,
   logging: !!CHATBOT_LOG_KEY,
-  ready: corpus.sources.length > 0,
+  ready: reposLoaded && corpus.sources.length > 0,
   corpusBuiltAt: corpus.builtAt,
   approxTokens: Math.round(corpus.text.length / 4),
   repos: REPOS.map(r => ({
@@ -254,7 +262,7 @@ app.post('/ask', async (req, res) => {
   if (!question) return res.status(400).json({ error: 'Question is required.' });
   if (question.length > MAX_QUESTION_CHARS) return res.status(400).json({ error: `Please keep questions under ${MAX_QUESTION_CHARS} characters.` });
   if (!ANTHROPIC_API_KEY) return res.status(503).json({ error: 'The assistant is not configured.' });
-  if (!corpus.sources.length) return res.status(503).json({ error: 'The assistant is still loading. Please try again in a moment.' });
+  if (!reposLoaded || !corpus.sources.length) return res.status(503).json({ error: 'The assistant is still loading. Please try again in a moment.' });
 
   const sessionId = typeof req.body.sessionId === 'string' && /^[a-z0-9-]{8,64}$/i.test(req.body.sessionId) ? req.body.sessionId : null;
   const limited = checkLimits(req.ip);
@@ -318,5 +326,5 @@ app.listen(PORT, () => {
 
 setInterval(() => {
   // Rebuild only when the FAQ changed, so the prompt cache stays warm.
-  fetchFaq().then(changed => { if (changed) buildCorpus(); }).catch(err => console.error('FAQ refresh failed:', err.message));
+  fetchFaq().then(changed => { if (changed && reposLoaded) buildCorpus(); }).catch(err => console.error('FAQ refresh failed:', err.message));
 }, FAQ_REFRESH_MS).unref();

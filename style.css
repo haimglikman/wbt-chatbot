@@ -26,7 +26,8 @@ a:hover{text-decoration:underline}
 .main{flex:1;width:100%;max-width:820px;margin:0 auto;padding:28px 20px 20px;display:flex;flex-direction:column;gap:16px}
 .intro h1{font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.2;color:var(--navy)}
 .intro h1 span{color:var(--blue)}
-.intro p{margin-top:8px;font-size:14px;color:var(--text2);line-height:1.6;max-width:640px}
+.intro p{margin-top:10px;font-size:14px;color:var(--text2);line-height:1.6}
+.intro p span{display:block}
 
 .chat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
 .messages{padding:20px;display:flex;flex-direction:column;gap:16px;min-height:220px}

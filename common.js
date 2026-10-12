@@ -2,8 +2,11 @@
 
 const API = new URLSearchParams(location.search).get('api') || 'https://wbt-chatbot.onrender.com';
 
-async function fetchHealth() {
-  const r = await fetch(API + '/health', { cache: 'no-store' });
+// Manual timeout (AbortSignal.timeout isn't available on older iOS).
+async function fetchHealth(timeoutMs = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const r = await fetch(API + '/health', { cache: 'no-store', signal: ctrl.signal }).finally(() => clearTimeout(timer));
   if (!r.ok) throw new Error('health ' + r.status);
   return r.json();
 }
