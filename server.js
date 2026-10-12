@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 
-const SERVER_VERSION = '1.2.2';
+const SERVER_VERSION = '1.2.3';
 
 // ── Configuration ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -241,7 +241,10 @@ app.use(cors({
 
 app.get('/', (req, res) => res.json({ service: 'wbt-chatbot', version: SERVER_VERSION, status: 'ok' }));
 
-app.get('/health', (req, res) => res.json({
+// Status: /ready is what the page polls (some browser privacy filters block URLs containing "health");
+// /health stays for monitoring and compatibility.
+function statusPayload() {
+  return {
   version: SERVER_VERSION,
   model: CLAUDE_MODEL,
   logging: !!CHATBOT_LOG_KEY,
@@ -255,7 +258,10 @@ app.get('/health', (req, res) => res.json({
     files: (repoDocs[r.name]?.files || []).map(f => f.path),
   })),
   faq: { entries: faq.items.length, fetchedAt: faq.fetchedAt },
-}));
+};
+}
+app.get('/health', (req, res) => res.json(statusPayload()));
+app.get('/ready', (req, res) => res.json(statusPayload()));
 
 app.post('/ask', async (req, res) => {
   const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';

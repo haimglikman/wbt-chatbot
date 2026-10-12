@@ -37,7 +37,7 @@
     </div>
     <span class="brand-name">Who's Behind That?</span>
     <span class="brand-badge">HOW IT WAS BUILT</span>
-    <span class="version-badge">v1.2.2</span>
+    <span class="version-badge">v1.2.3</span>
   </div>
   <div class="topbar-right">
     <nav class="topbar-links">
@@ -54,9 +54,7 @@
     <h1>Ask how <span>Who's Behind That?</span> was built</h1>
     <p>
       <span>Who's Behind That? is an AI tool that detects whose agenda a post or article serves.</span>
-      <span>It was designed and built end to end by Haim Glikman.</span>
-      <span>Ask about its architecture, engineering decisions and development history.</span>
-      <span>Answers come from the project's repos and cite their sources.</span>
+      <span>Ask about its architecture, engineering decisions and development history. Answers come from the project's repos and cite their sources.</span>
     </p>
   </section>
 
@@ -113,11 +111,17 @@ function markReady() { assistantReady = true; setStatus(''); }
 async function warmUp() {
   const started = Date.now();
   const slow = setTimeout(() => { if (!assistantReady) setStatus('Waking up the assistant… this can take up to a minute.'); }, 1500);
+  let instantFailures = 0;   // a sleeping host holds requests; failing instantly means the check is blocked or offline
   while (!assistantReady && Date.now() - started < 180000) {
+    const attemptStart = Date.now();
     try {
       const health = await fetchHealth(10000);
       if (health.ready) break;
-    } catch (e) { /* still waking */ }
+      instantFailures = 0;
+    } catch (e) {
+      instantFailures = Date.now() - attemptStart < 1500 ? instantFailures + 1 : 0;
+      if (instantFailures >= 3) { clearTimeout(slow); setStatus(''); return; }   // can't check — questions still work
+    }
     if (assistantReady) break;
     if (Date.now() - started > 60000) setStatus('Still starting up… almost there.');
     await new Promise(res => setTimeout(res, 3000));
