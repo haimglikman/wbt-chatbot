@@ -44,6 +44,13 @@ flowchart LR
 
 ## Changelog
 
+### v1.2.2 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
+- Cold start: the service reports ready once the repo docs are loaded; the FAQ joins when the WBT server responds (readiness no longer waits for it)
+- Warm-up checks time out after 10s and retry for up to 3 minutes, so a stalled request can't leave the "Waking up" notice stuck; a successful answer also clears it
+- Title uses the full name ("Ask how Who's Behind That? was built"); intro shows one sentence per line within the chat box width
+- Footer notes that questions and answers are stored anonymously for monitoring purposes
+- package.json: version 1.2.2
+
 ### v1.2.1 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
 - Version shown in the top bar of both pages is now hardcoded and visible on mobile (no longer depends on reaching the service)
 - Answers fall back to plain text if the markdown libraries fail to load
