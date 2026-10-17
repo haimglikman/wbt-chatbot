@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 
-const SERVER_VERSION = '1.2.3';
+const SERVER_VERSION = '1.2.3.1';
 
 // ── Configuration ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
