@@ -45,6 +45,10 @@ flowchart LR
 
 ## Changelog
 
+### v1.2.3.1 (chatbot, docs only) | Server: v2.7.0.1 | Admin: v2.30.0 | Client: v1.20.0
+- README: documented the keep-awake schedule (cron-job.org pings every 10 minutes, Sun–Thu 08:00–21:59 Israel time)
+- No code changes; the running service remains v1.2.3
+
 ### v1.2.3 (chatbot) | Server: v2.7.0 | Admin: v2.30.0 | Client: v1.20.0
 - Warm-up checks use the new GET /ready endpoint — some browser privacy filters block URLs containing "health", which left the "Waking up" notice stuck; /health remains for monitoring
 - If the warm-up check is blocked (three instant failures), the notice hides instead of persisting; questions still work
