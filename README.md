@@ -17,6 +17,7 @@ flowchart LR
 - **No vector database:** the whole corpus (~33k tokens) fits in the prompt, so retrieval can't miss relevant context. Prompt caching keeps repeat questions cheap.
 - **Cited:** the model cites source IDs (`[S2]`), and the API returns the matching file titles and GitHub links.
 - **Guarded:** per-IP hourly and global daily limits, length limits on questions and history, a CORS allowlist, webhook signature verification, and server-side API keys.
+- **Kept awake in working hours:** an external scheduler (cron-job.org) pings the service every 10 minutes, Sunday–Thursday 08:00–21:59 Israel time, so recruiters get instant answers; outside those hours it sleeps on Render's free tier and the page shows a "Waking up" notice during the cold start.
 
 ## API
 
