@@ -12,12 +12,22 @@ flowchart LR
   S -- question + corpus --> C[Claude Haiku 4.5]
 ```
 
-- **Grounded:** answers come only from WBT's own documentation. That covers the three production repos (README changelog and `docs/`), the three development repos (README changelog), and the live FAQ.
+- **Grounded:** answers come only from WBT's own documentation. That covers the three production repos (README changelog and `docs/`), the three development repos (README changelog), this repo's README, and the live FAQ.
 - **Always current:** every push to a WBT repo triggers a GitHub webhook. The service re-fetches that repo at the exact pushed commit and rebuilds the corpus. The FAQ is polled every 10 minutes, and the corpus is rebuilt only when the FAQ changes.
 - **No vector database:** the whole corpus (~33k tokens) fits in the prompt, so retrieval can't miss relevant context. Prompt caching keeps repeat questions cheap.
 - **Cited:** the model cites source IDs (`[S2]`), and the API returns the matching file titles and GitHub links.
 - **Guarded:** per-IP hourly and global daily limits, length limits on questions and history, a CORS allowlist, webhook signature verification, and server-side API keys.
 - **Kept awake in working hours:** an external scheduler (cron-job.org) pings the service every 10 minutes, Sunday–Thursday 08:00–21:59 Israel time; outside those hours it sleeps on Render's free tier and the page shows a "Waking up" notice during the cold start.
+
+## Runtime and dependencies
+
+The chatbot follows the same hardening setup as the WBT server (see `docs/ARCHITECTURE.md` and decision 15 in `docs/SERVER_DECISIONS.md` in the server repo).
+
+- **Node.js pinned to the latest 24.x:** Render's `NODE_VERSION` is set to `^24.22.1`, so each deploy installs the newest Node 24 release and never jumps to a new major.
+- **Weekly redeploys:** cron-job.org calls the service's Render deploy hook every Friday morning, staggered with the server's, so new Node patches arrive without a code change.
+- **Exact installs:** a committed `package-lock.json` (two dependencies, `express` and `cors`) and the build command `npm ci` give a clean install of exactly the locked versions on every deploy. The lockfile is regenerated only when `package.json` dependencies change.
+- **Dependabot:** alerts, security updates, malware alerts and grouped security updates are enabled on this repo; a security PR is merged, auto-deployed, checked, and reverted if it breaks anything.
+- The browser libraries (`marked`, `DOMPurify`) are bundled in `vendor/` rather than loaded from a CDN, so the page has no third-party script dependency at runtime.
 
 ## API
 
@@ -25,7 +35,8 @@ flowchart LR
 |---|---|---|
 | `POST` | `/ask` | `{ question, history? }` → `{ answer, sources }` |
 | `POST` | `/refresh` | GitHub push webhook (HMAC-verified) |
-| `GET` | `/health` | Corpus status: per-repo commit, files, FAQ count, approximate tokens |
+| `GET` | `/ready` | Corpus status, polled by the page during warm-up (some browser privacy filters block URLs containing "health") |
+| `GET` | `/health` | Same status, kept for monitoring: per-repo commit, files, FAQ count, approximate tokens |
 | `GET` | `/` | Version and status |
 
 ## Configuration
@@ -40,10 +51,15 @@ flowchart LR
 | `ALLOWED_ORIGINS` | No | `https://ask.whosbehindthat.com,https://haimglikman.github.io,http://localhost:8080` |
 | `PER_IP_HOURLY_LIMIT` | No | `20` |
 | `GLOBAL_DAILY_LIMIT` | No | `300` |
-
+| `NODE_VERSION` | Recommended | — (set to `^24.22.1` on Render: latest Node 24.x) |
 | `CHATBOT_LOG_KEY` | Recommended | — (same value as on the WBT server; enables the question log) |
 
 ## Changelog
+
+### v1.2.3.2 (chatbot, docs only) | Server: v2.7.0.2 | Admin: v2.30.1 | Client: v1.20.0
+- README: new "Runtime and dependencies" section — Node.js pinned to the latest 24.x (NODE_VERSION=^24.22.1), weekly Friday redeploys via a Render deploy hook triggered from cron-job.org, committed package-lock.json with the npm ci build command, Dependabot alerts, security updates, malware alerts and grouped security updates
+- README: /ready added to the API table, NODE_VERSION added to the configuration table (and the table rejoined), corpus sources now include this README
+- No code changes; package.json, package-lock.json and both pages' version badges set to 1.2.3.2 (architecture.html still showed v1.2.3)
 
 ### v1.2.3.1 — docs (chatbot) | Server: v2.7.0.1 | Admin: v2.30.1
 - README: documented the keep-awake schedule (cron-job.org pings every 10 minutes, Sun–Thu 08:00–21:59 Israel time)
